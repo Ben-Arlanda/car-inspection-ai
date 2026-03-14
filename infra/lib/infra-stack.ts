@@ -67,6 +67,7 @@ export class InfraStack extends cdk.Stack {
         handler: "handler",
         environment: {
           INSPECTIONS_BUCKET_NAME: inspectionsBucket.bucketName,
+          INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
         },
       },
     );
