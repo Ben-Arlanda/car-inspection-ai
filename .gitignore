@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# CDK
+.cdk.staging
+cdk.out
+
+# Build output
+*.js.map
+dist/
+
+# TypeScript build (for CDK infra)
+infra/**/*.js
+infra/**/*.d.ts
+!infra/**/jest.config.js
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
