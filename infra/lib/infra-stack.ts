@@ -72,7 +72,24 @@ export class InfraStack extends cdk.Stack {
       },
     );
 
+    const completePhotoUploadFn = new NodejsFunction(
+      this,
+      "CompletePhotoUploadFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          __dirname,
+          "../../backend/src/handlers/completePhotoUpload.ts",
+        ),
+        handler: "handler",
+        environment: {
+          INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+        },
+      },
+    );
+
     inspectionsBucket.grantPut(generateUploadUrlFn);
+    inspectionsTable.grantReadWriteData(completePhotoUploadFn);
     inspectionsTable.grantReadData(getInspectionFn);
     inspectionsTable.grantReadWriteData(generateUploadUrlFn);
     inspectionsTable.grantReadWriteData(createInspectionFn);
@@ -110,6 +127,15 @@ export class InfraStack extends cdk.Stack {
       integration: new HttpLambdaIntegration(
         "GenerateUploadUrlIntegration",
         generateUploadUrlFn,
+      ),
+    });
+
+    api.addRoutes({
+      path: "/inspections/{inspectionId}/photos/{photoId}/complete",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        "CompletePhotoUploadIntegration",
+        completePhotoUploadFn,
       ),
     });
 
