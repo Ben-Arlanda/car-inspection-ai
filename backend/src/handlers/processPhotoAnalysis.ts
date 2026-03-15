@@ -4,6 +4,7 @@ import {
   DynamoDBDocumentClient,
   GetCommand,
   UpdateCommand,
+  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -78,6 +79,55 @@ export const handler = async (event: SQSEvent): Promise<void> => {
       }),
     );
 
-    console.log("Photo analysis completed", { inspectionId, photoId });
+    const inspectionItemsResult = await dynamo.send(
+      new QueryCommand({
+        TableName: tableName,
+        KeyConditionExpression: "pk = :pk",
+        ExpressionAttributeValues: {
+          ":pk": pk,
+        },
+      }),
+    );
+
+    const inspectionItems = inspectionItemsResult.Items ?? [];
+
+    const photoItems = inspectionItems.filter(
+      (item) => typeof item.sk === "string" && item.sk.startsWith("PHOTO#"),
+    );
+
+    const totalPhotos = photoItems.length;
+
+    const completedPhotos = photoItems.filter(
+      (photo) => photo.status === "ANALYSIS_COMPLETE",
+    ).length;
+
+    const nextInspectionStatus =
+      totalPhotos > 0 && completedPhotos === totalPhotos
+        ? "COMPLETE"
+        : "ANALYZING";
+
+    await dynamo.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: {
+          pk,
+          sk: "META",
+        },
+        UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
+        ExpressionAttributeNames: {
+          "#status": "status",
+        },
+        ExpressionAttributeValues: {
+          ":status": nextInspectionStatus,
+          ":updatedAt": new Date().toISOString(),
+        },
+      }),
+    );
+
+    console.log("Photo analysis completed", {
+      inspectionId,
+      photoId,
+      inspectionStatus: nextInspectionStatus,
+    });
   }
 };

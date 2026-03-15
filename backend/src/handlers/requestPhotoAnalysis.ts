@@ -75,6 +75,24 @@ export const handler = async (
       }),
     );
 
+    await dynamo.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: {
+          pk,
+          sk: "META",
+        },
+        UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
+        ExpressionAttributeNames: {
+          "#status": "status",
+        },
+        ExpressionAttributeValues: {
+          ":status": "ANALYZING",
+          ":updatedAt": updatedAt,
+        },
+      }),
+    );
+
     await sqs.send(
       new SendMessageCommand({
         QueueUrl: analysisQueueUrl,
@@ -91,7 +109,8 @@ export const handler = async (
         message: "Photo queued for analysis",
         inspectionId,
         photoId,
-        status: "ANALYSIS_PENDING",
+        photoStatus: "ANALYSIS_PENDING",
+        inspectionStatus: "ANALYZING",
         updatedAt,
       }),
     };
