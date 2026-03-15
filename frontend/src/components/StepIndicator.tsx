@@ -16,8 +16,9 @@ export default function StepIndicator({ current }: { current: number }) {
   return (
     <div className="flex items-center justify-center gap-2 mb-12">
       {steps.map((label, i) => {
-        const isComplete = i < current;
-        const isActive = i === current;
+        const isFinalStep = current === steps.length - 1;
+        const isComplete = i < current || (isFinalStep && i === current);
+        const isActive = i === current && !isFinalStep;
 
         return (
           <div key={label} className="flex items-center gap-2">

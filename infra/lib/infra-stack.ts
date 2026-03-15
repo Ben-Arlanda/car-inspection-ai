@@ -23,6 +23,15 @@ export class InfraStack extends cdk.Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       autoDeleteObjects: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+      cors: [
+        {
+          allowedHeaders: ["*"],
+          allowedMethods: [s3.HttpMethods.PUT],
+          allowedOrigins: ["*"],
+          exposedHeaders: ["ETag"],
+          maxAge: 3600,
+        },
+      ],
     });
 
     const inspectionsTable = new dynamodb.Table(this, "InspectionsTable", {

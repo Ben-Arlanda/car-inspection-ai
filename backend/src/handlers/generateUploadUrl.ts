@@ -46,6 +46,11 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
   const uploadUrl = await getSignedUrl(s3, command, {
     expiresIn: 300,
+    unhoistableHeaders: new Set(["x-amz-checksum-crc32"]),
+    unsignableHeaders: new Set([
+      "x-amz-checksum-crc32",
+      "x-amz-sdk-checksum-algorithm",
+    ]),
   });
 
   return {
