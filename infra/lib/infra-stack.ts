@@ -120,6 +120,19 @@ export class InfraStack extends cdk.Stack {
       },
     );
 
+    const runPhotoAnalysisFn = new NodejsFunction(this, "RunPhotoAnalysisFn", {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      entry: path.join(
+        __dirname,
+        "../../backend/src/handlers/runPhotoAnalysis.ts",
+      ),
+      handler: "handler",
+      environment: {
+        INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+      },
+    });
+
+    inspectionsTable.grantReadWriteData(runPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(requestPhotoAnalysisFn);
     inspectionsTable.grantReadData(listInspectionPhotosFn);
     inspectionsBucket.grantPut(generateUploadUrlFn);
@@ -188,6 +201,15 @@ export class InfraStack extends cdk.Stack {
       integration: new HttpLambdaIntegration(
         "RequestPhotoAnalysisIntegration",
         requestPhotoAnalysisFn,
+      ),
+    });
+
+    api.addRoutes({
+      path: "/inspections/{inspectionId}/photos/{photoId}/analyze/run",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        "RunPhotoAnalysisIntegration",
+        runPhotoAnalysisFn,
       ),
     });
 
