@@ -15,7 +15,8 @@ type PhotoItem = {
     | "UPLOADED"
     | "ANALYSIS_PENDING"
     | "ANALYSIS_IN_PROGRESS"
-    | "ANALYSIS_COMPLETE";
+    | "ANALYSIS_COMPLETE"
+    | "ANALYSIS_FAILED";
   createdAt?: string;
   updatedAt?: string;
   analyzedAt?: string;
@@ -79,12 +80,14 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       ANALYSIS_PENDING: 0,
       ANALYSIS_IN_PROGRESS: 0,
       ANALYSIS_COMPLETE: 0,
+      ANALYSIS_FAILED: 0,
     };
 
     let completedAnalysisCount = 0;
     let pendingAnalysisCount = 0;
     let inProgressAnalysisCount = 0;
     let uploadedNotQueuedCount = 0;
+    let failedAnalysisCount = 0;
     let damageDetectedPhotoCount = 0;
 
     const confidenceValues: number[] = [];
@@ -106,6 +109,10 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
 
       if (photo.status === "ANALYSIS_IN_PROGRESS") {
         inProgressAnalysisCount++;
+      }
+
+      if (photo.status === "ANALYSIS_FAILED") {
+        failedAnalysisCount++;
       }
 
       if (photo.status === "UPLOADED") {
@@ -153,17 +160,19 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       totalPhotos === 0 ? 0 : Math.round((analyzedPhotos / totalPhotos) * 100);
 
     const overallAnalysisStatus =
-      photoItems.length === 0
+      totalPhotos === 0
         ? "NO_PHOTOS"
-        : completedAnalysisCount === photoItems.length
-          ? "COMPLETE"
-          : inProgressAnalysisCount > 0
-            ? "IN_PROGRESS"
-            : pendingAnalysisCount > 0
-              ? "PENDING"
-              : uploadedNotQueuedCount > 0
-                ? "UPLOADED_WAITING_ANALYSIS"
-                : "PARTIAL";
+        : failedAnalysisCount > 0
+          ? "FAILED"
+          : completedAnalysisCount === totalPhotos
+            ? "COMPLETE"
+            : inProgressAnalysisCount > 0
+              ? "IN_PROGRESS"
+              : pendingAnalysisCount > 0
+                ? "PENDING"
+                : uploadedNotQueuedCount > 0
+                  ? "UPLOADED_WAITING_ANALYSIS"
+                  : "PARTIAL";
 
     const photoResults = photoItems.map((photo) => ({
       photoId: photo.photoId,
@@ -193,6 +202,7 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           pendingAnalysisCount,
           inProgressAnalysisCount,
           uploadedNotQueuedCount,
+          failedAnalysisCount,
           damageDetectedPhotoCount,
           averageConfidence,
           issueCounts,
