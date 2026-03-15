@@ -31,8 +31,17 @@ export class InfraStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
+
+    const analysisDlq = new sqs.Queue(this, "AnalysisDlq", {
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     const analysisQueue = new sqs.Queue(this, "AnalysisQueue", {
       visibilityTimeout: cdk.Duration.seconds(30),
+      deadLetterQueue: {
+        queue: analysisDlq,
+        maxReceiveCount: 3,
+      },
     });
 
     const createInspectionFn = new NodejsFunction(this, "CreateInspectionFn", {
@@ -170,6 +179,27 @@ export class InfraStack extends cdk.Stack {
       },
     );
 
+    const processAnalysisFailureFn = new NodejsFunction(
+      this,
+      "ProcessAnalysisFailureFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          __dirname,
+          "../../backend/src/handlers/processAnalysisFailure.ts",
+        ),
+        handler: "handler",
+        environment: {
+          INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+        },
+      },
+    );
+
+    processAnalysisFailureFn.addEventSource(
+      new lambdaEventSources.SqsEventSource(analysisDlq),
+    );
+
+    inspectionsTable.grantReadWriteData(processAnalysisFailureFn);
     inspectionsTable.grantReadData(getInspectionSummaryFn);
     analysisQueue.grantSendMessages(requestPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(processPhotoAnalysisFn);

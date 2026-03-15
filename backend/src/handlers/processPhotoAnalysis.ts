@@ -159,41 +159,6 @@ export const handler = async (event: SQSEvent): Promise<void> => {
         error,
       });
 
-      const failedAt = new Date().toISOString();
-
-      await dynamo.send(
-        new UpdateCommand({
-          TableName: tableName,
-          Key: { pk, sk },
-          UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
-          ExpressionAttributeNames: {
-            "#status": "status",
-          },
-          ExpressionAttributeValues: {
-            ":status": "ANALYSIS_FAILED",
-            ":updatedAt": failedAt,
-          },
-        }),
-      );
-
-      await dynamo.send(
-        new UpdateCommand({
-          TableName: tableName,
-          Key: {
-            pk,
-            sk: "META",
-          },
-          UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
-          ExpressionAttributeNames: {
-            "#status": "status",
-          },
-          ExpressionAttributeValues: {
-            ":status": "FAILED",
-            ":updatedAt": failedAt,
-          },
-        }),
-      );
-
       throw error;
     }
   }
