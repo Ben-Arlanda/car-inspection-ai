@@ -5,6 +5,8 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as path from "path";
+import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as lambdaEventSources from "aws-cdk-lib/aws-lambda-event-sources";
 import {
   HttpApi,
   CorsHttpMethod,
@@ -28,6 +30,9 @@ export class InfraStack extends cdk.Stack {
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+    const analysisQueue = new sqs.Queue(this, "AnalysisQueue", {
+      visibilityTimeout: cdk.Duration.seconds(30),
     });
 
     const createInspectionFn = new NodejsFunction(this, "CreateInspectionFn", {
@@ -116,6 +121,7 @@ export class InfraStack extends cdk.Stack {
         handler: "handler",
         environment: {
           INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+          ANALYSIS_QUEUE_URL: analysisQueue.queueUrl,
         },
       },
     );
@@ -132,6 +138,24 @@ export class InfraStack extends cdk.Stack {
       },
     });
 
+    const processPhotoAnalysisFn = new NodejsFunction(
+      this,
+      "ProcessPhotoAnalysisFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          __dirname,
+          "../../backend/src/handlers/processPhotoAnalysis.ts",
+        ),
+        handler: "handler",
+        environment: {
+          INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+        },
+      },
+    );
+
+    analysisQueue.grantSendMessages(requestPhotoAnalysisFn);
+    inspectionsTable.grantReadWriteData(processPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(runPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(requestPhotoAnalysisFn);
     inspectionsTable.grantReadData(listInspectionPhotosFn);
@@ -141,6 +165,10 @@ export class InfraStack extends cdk.Stack {
     inspectionsTable.grantReadWriteData(generateUploadUrlFn);
     inspectionsTable.grantReadWriteData(createInspectionFn);
     inspectionsBucket.grantReadWrite(createInspectionFn);
+
+    processPhotoAnalysisFn.addEventSource(
+      new lambdaEventSources.SqsEventSource(analysisQueue),
+    );
 
     const api = new HttpApi(this, "CarInspectionApi", {
       corsPreflight: {

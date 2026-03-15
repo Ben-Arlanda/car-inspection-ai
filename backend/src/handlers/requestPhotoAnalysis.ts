@@ -5,9 +5,13 @@ import {
   GetCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const sqs = new SQSClient({});
+
 const tableName = process.env.INSPECTIONS_TABLE_NAME!;
+const analysisQueueUrl = process.env.ANALYSIS_QUEUE_URL!;
 
 export const handler = async (
   event: APIGatewayProxyEvent,
@@ -71,8 +75,18 @@ export const handler = async (
       }),
     );
 
+    await sqs.send(
+      new SendMessageCommand({
+        QueueUrl: analysisQueueUrl,
+        MessageBody: JSON.stringify({
+          inspectionId,
+          photoId,
+        }),
+      }),
+    );
+
     return {
-      statusCode: 200,
+      statusCode: 202,
       body: JSON.stringify({
         message: "Photo queued for analysis",
         inspectionId,
