@@ -1,9 +1,9 @@
-import { QueryCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  QueryCommand,
+  UpdateCommand,
+} from "@aws-sdk/lib-dynamodb";
 import { calculateInspectionStatus, PhotoStatus } from "./inspectionStatus";
-
-type DynamoLike = {
-  send: (command: unknown) => Promise<any>;
-};
 
 type PhotoItem = {
   status: PhotoStatus;
@@ -14,7 +14,7 @@ export const updateInspectionStatus = async ({
   tableName,
   inspectionId,
 }: {
-  dynamo: DynamoLike;
+  dynamo: DynamoDBDocumentClient;
   tableName: string;
   inspectionId: string;
 }): Promise<void> => {
