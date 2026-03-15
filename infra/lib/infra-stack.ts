@@ -199,6 +199,26 @@ export class InfraStack extends cdk.Stack {
       new lambdaEventSources.SqsEventSource(analysisDlq),
     );
 
+    const retryPhotoAnalysisFn = new NodejsFunction(
+      this,
+      "RetryPhotoAnalysisFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          __dirname,
+          "../../backend/src/handlers/retryPhotoAnalysis.ts",
+        ),
+        handler: "handler",
+        environment: {
+          INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+          ANALYSIS_QUEUE_URL: analysisQueue.queueUrl,
+        },
+      },
+    );
+
+    inspectionsTable.grantReadWriteData(retryPhotoAnalysisFn);
+    analysisQueue.grantSendMessages(retryPhotoAnalysisFn);
+    inspectionsTable.grantReadWriteData(retryPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(processAnalysisFailureFn);
     inspectionsTable.grantReadData(getInspectionSummaryFn);
     analysisQueue.grantSendMessages(requestPhotoAnalysisFn);
@@ -294,6 +314,15 @@ export class InfraStack extends cdk.Stack {
       integration: new HttpLambdaIntegration(
         "GetInspectionSummaryIntegration",
         getInspectionSummaryFn,
+      ),
+    });
+
+    api.addRoutes({
+      path: "/inspections/{inspectionId}/photos/{photoId}/retry",
+      methods: [HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        "RetryPhotoAnalysisIntegration",
+        retryPhotoAnalysisFn,
       ),
     });
 
