@@ -60,6 +60,22 @@ export class InfraStack extends cdk.Stack {
       },
     });
 
+    const getInspectionSummaryFn = new NodejsFunction(
+      this,
+      "GetInspectionSummaryFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          __dirname,
+          "../../backend/src/handlers/getInspectionSummary.ts",
+        ),
+        handler: "handler",
+        environment: {
+          INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+        },
+      },
+    );
+
     const generateUploadUrlFn = new NodejsFunction(
       this,
       "GenerateUploadUrlFn",
@@ -154,6 +170,7 @@ export class InfraStack extends cdk.Stack {
       },
     );
 
+    inspectionsTable.grantReadData(getInspectionSummaryFn);
     analysisQueue.grantSendMessages(requestPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(processPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(runPhotoAnalysisFn);
@@ -238,6 +255,15 @@ export class InfraStack extends cdk.Stack {
       integration: new HttpLambdaIntegration(
         "RunPhotoAnalysisIntegration",
         runPhotoAnalysisFn,
+      ),
+    });
+
+    api.addRoutes({
+      path: "/inspections/{inspectionId}/summary",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration(
+        "GetInspectionSummaryIntegration",
+        getInspectionSummaryFn,
       ),
     });
 
