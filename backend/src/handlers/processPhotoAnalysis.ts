@@ -4,8 +4,8 @@ import {
   DynamoDBDocumentClient,
   GetCommand,
   UpdateCommand,
-  QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { updateInspectionStatus } from "../lib/updateInspectionStatus";
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const tableName = process.env.INSPECTIONS_TABLE_NAME!;
@@ -97,60 +97,15 @@ export const handler = async (event: SQSEvent): Promise<void> => {
         }),
       );
 
-      const inspectionItemsResult = await dynamo.send(
-        new QueryCommand({
-          TableName: tableName,
-          KeyConditionExpression: "pk = :pk",
-          ExpressionAttributeValues: {
-            ":pk": pk,
-          },
-        }),
-      );
-
-      const inspectionItems = inspectionItemsResult.Items ?? [];
-
-      const photoItems = inspectionItems.filter(
-        (item) => typeof item.sk === "string" && item.sk.startsWith("PHOTO#"),
-      );
-
-      const totalPhotos = photoItems.length;
-      const completedPhotos = photoItems.filter(
-        (photo) => photo.status === "ANALYSIS_COMPLETE",
-      ).length;
-
-      const failedPhotos = photoItems.filter(
-        (photo) => photo.status === "ANALYSIS_FAILED",
-      ).length;
-
-      const nextInspectionStatus =
-        failedPhotos > 0
-          ? "FAILED"
-          : totalPhotos > 0 && completedPhotos === totalPhotos
-            ? "COMPLETE"
-            : "ANALYZING";
-
-      await dynamo.send(
-        new UpdateCommand({
-          TableName: tableName,
-          Key: {
-            pk,
-            sk: "META",
-          },
-          UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
-          ExpressionAttributeNames: {
-            "#status": "status",
-          },
-          ExpressionAttributeValues: {
-            ":status": nextInspectionStatus,
-            ":updatedAt": new Date().toISOString(),
-          },
-        }),
-      );
+      await updateInspectionStatus({
+        dynamo,
+        tableName,
+        inspectionId,
+      });
 
       console.log("Photo analysis completed", {
         inspectionId,
         photoId,
-        inspectionStatus: nextInspectionStatus,
       });
     } catch (error) {
       console.error("Photo analysis failed", {

@@ -6,6 +6,7 @@ import {
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
+import { updateInspectionStatus } from "../lib/updateInspectionStatus";
 
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const sqs = new SQSClient({});
@@ -79,23 +80,11 @@ export const handler = async (
       }),
     );
 
-    await dynamo.send(
-      new UpdateCommand({
-        TableName: tableName,
-        Key: {
-          pk,
-          sk: "META",
-        },
-        UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
-        ExpressionAttributeNames: {
-          "#status": "status",
-        },
-        ExpressionAttributeValues: {
-          ":status": "ANALYZING",
-          ":updatedAt": updatedAt,
-        },
-      }),
-    );
+    await updateInspectionStatus({
+      dynamo,
+      tableName,
+      inspectionId,
+    });
 
     await sqs.send(
       new SendMessageCommand({
@@ -114,7 +103,6 @@ export const handler = async (
         inspectionId,
         photoId,
         photoStatus: "ANALYSIS_PENDING",
-        inspectionStatus: "ANALYZING",
         updatedAt,
       }),
     };
