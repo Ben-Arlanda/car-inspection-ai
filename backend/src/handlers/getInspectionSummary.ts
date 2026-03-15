@@ -146,6 +146,12 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
           )
         : null;
 
+    const totalPhotos = photoItems.length;
+    const analyzedPhotos = completedAnalysisCount;
+
+    const percentComplete =
+      totalPhotos === 0 ? 0 : Math.round((analyzedPhotos / totalPhotos) * 100);
+
     const overallAnalysisStatus =
       photoItems.length === 0
         ? "NO_PHOTOS"
@@ -175,8 +181,13 @@ export const handler = async (event: APIGatewayProxyEventV2) => {
       body: JSON.stringify({
         inspectionId,
         inspectionStatus: inspectionMeta?.status ?? null,
+        progress: {
+          totalPhotos,
+          analyzedPhotos,
+          percentComplete,
+        },
         summary: {
-          totalPhotos: photoItems.length,
+          totalPhotos,
           photosByStatus,
           completedAnalysisCount,
           pendingAnalysisCount,
