@@ -216,6 +216,23 @@ export class InfraStack extends cdk.Stack {
       },
     );
 
+    const getInspectionReportFn = new NodejsFunction(
+      this,
+      "GetInspectionReportFn",
+      {
+        runtime: lambda.Runtime.NODEJS_20_X,
+        entry: path.join(
+          __dirname,
+          "../../backend/src/handlers/getInspectionReport.ts",
+        ),
+        handler: "handler",
+        environment: {
+          INSPECTIONS_TABLE_NAME: inspectionsTable.tableName,
+        },
+      },
+    );
+
+    inspectionsTable.grantReadData(getInspectionReportFn);
     inspectionsTable.grantReadWriteData(retryPhotoAnalysisFn);
     analysisQueue.grantSendMessages(retryPhotoAnalysisFn);
     inspectionsTable.grantReadWriteData(retryPhotoAnalysisFn);
@@ -323,6 +340,15 @@ export class InfraStack extends cdk.Stack {
       integration: new HttpLambdaIntegration(
         "RetryPhotoAnalysisIntegration",
         retryPhotoAnalysisFn,
+      ),
+    });
+
+    api.addRoutes({
+      path: "/inspections/{inspectionId}/report",
+      methods: [HttpMethod.GET],
+      integration: new HttpLambdaIntegration(
+        "GetInspectionReportIntegration",
+        getInspectionReportFn,
       ),
     });
 
